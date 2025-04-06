@@ -4,6 +4,12 @@ namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
+use Illuminate\Database\QueryException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+
 
 class Handler extends ExceptionHandler
 {
@@ -37,5 +43,30 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+
+
     }
+
+    public function render($request, Throwable $exception)
+    {
+        if ($exception instanceof ValidationException) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Los datos proporcionados no son válidos.',
+                    'errors' => $exception->errors()
+                ], 422);
+            }
+
+            return redirect()->back()
+                ->withErrors($exception->validator)
+                ->withInput();
+        }
+
+        if ($exception instanceof QueryException) {
+            return response()->view('errors.database_unavailable', [], 503);
+        }
+
+        return parent::render($request, $exception);
+    }
+
 }

@@ -16,6 +16,8 @@ use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\JWT as JWTAuthJWT;
 use Lunaweb\RecaptchaV3\Providers\RecaptchaV3ServiceProvider;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Support\Facades\Session;
 
 /**
  * Clase UsuarioController
@@ -35,23 +37,20 @@ class UsuarioController extends Controller
      */
     public function registerNewUser(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'nombre' => "required|string|max:80",
-            'email' => "required|email|max:100|unique:usuarios",
-            'password' => ['required', Password::min(8)->mixedCase()
-            ->letters()
-            ->numbers()
-            ->symbols()
-            ->uncompromised()],
+        $request->validate([
+            'nombre' => 'required|string|max:255',
+            'email' => 'required|email|unique:usuarios,email',
+            'password' => [
+                'required',
+                'string',
+                Password::min(8)
+                    ->letters()
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
             'g-recaptcha-response' => 'required|recaptchav3:register,0.5'
         ]);
-
-        if ($validator->fails()) {
-            Log::warning('Error registering a user', [
-                'errors' => $validator->errors()->toArray(),
-            ]);
-            return back()->withErrors($validator)->withInput();
-        }
 
         $usuario = new Usuario();
         $usuario->nombre = $request->nombre;
@@ -94,18 +93,12 @@ class UsuarioController extends Controller
      */
     public function authenticateUser(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'email' => 'required|email',
             'password' => 'required|string|min:8',
             'g-recaptcha-response' => 'required|recaptchav3:login,0.5'
         ]);
-
-        if ($validator->fails()) {
-            Log::warning(config('errors.1001'), [
-                'errors' => $validator->errors()->toArray(),
-            ]);
-            return back()->withErrors($validator)->withInput();
-        }
+        
 
         $usuario = Usuario::where('email', $request->email)->first();
 
@@ -151,17 +144,9 @@ class UsuarioController extends Controller
      */
     public function verifyCode(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'code' => 'required',
-            'g-recaptcha-response' => 'required|recaptchav3:verify,0.5'
+        $request->validate([
+            'code' => 'required|numeric|digits:6',
         ]);
-
-        if ($validator->fails()) {
-            Log::warning(config('errors.3002'), [
-                'errors' => $validator->errors()->toArray(),
-            ]);
-            return back()->withErrors($validator)->withInput();
-        }
 
         $email = session('email');
 
